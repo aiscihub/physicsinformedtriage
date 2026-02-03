@@ -43,9 +43,9 @@ def load_existing_keys(output_path: Path):
 
 
 def compute_contact_persistence(
-    traj_path: Path,
-    top_path: Path,
-    ligand_resname: str = "UNK"
+        traj_path: Path,
+        top_path: Path,
+        ligand_resname: str = "UNK"
 ) -> float:
     """
     Compute f_contact: fraction of frames with ≥1 ligand-protein contact.
@@ -54,19 +54,19 @@ def compute_contact_persistence(
     """
     try:
         u = mda.Universe(str(top_path), str(traj_path))
-        
+
         # Select ligand and protein
         ligand = u.select_atoms(f"resname {ligand_resname}")
         protein = u.select_atoms("protein and not name H*")
-        
+
         if ligand.n_atoms == 0:
             log.warning(f"No ligand found with resname {ligand_resname}")
             return 0.0
-        
+
         # Count frames with contacts
         frames_with_contact = 0
         total_frames = len(u.trajectory)
-        
+
         for ts in u.trajectory:
             # Compute distance matrix
             from MDAnalysis.analysis import distances
@@ -75,14 +75,14 @@ def compute_contact_persistence(
                 protein.positions,
                 box=u.dimensions
             )
-            
+
             # Check if any distance < 4.0Å
             if np.any(dists < 4.0):
                 frames_with_contact += 1
-        
+
         f_contact = frames_with_contact / total_frames
         return f_contact
-        
+
     except Exception as e:
         log.error(f"Failed to compute contact persistence: {e}")
         return 0.0
@@ -188,7 +188,7 @@ def compute_labels_from_plip(plip_summary_path: Path) -> tuple:
             return f_contact, n_contacts
 
 
-    # ---------- CASE 2: initial/final only ----------
+        # ---------- CASE 2: initial/final only ----------
         else:
             df_init = df[df["Complex"].str.contains("initial_frame")]
             df_final = df[df["Complex"].str.contains("final_frame")]
@@ -220,13 +220,13 @@ def compute_labels_from_plip(plip_summary_path: Path) -> tuple:
 
 
 def compute_ground_truth_labels(
-    base_root: Path,
-    proteins: list,
-    output_path: Path,
-    ligand_resname: str = "UNK",
-    use_plip: bool = True,
-    use_drift: bool = True,
-    ligand_name : str = 'Milbemycin'
+        base_root: Path,
+        proteins: list,
+        output_path: Path,
+        ligand_resname: str = "UNK",
+        use_plip: bool = True,
+        use_drift: bool = True,
+        ligand_name : str = 'Milbemycin'
 ) -> pd.DataFrame:
     """
     Compute ground truth labels for all pockets from 20ns data.
@@ -240,7 +240,7 @@ def compute_ground_truth_labels(
     log.info("="*70)
     log.info("COMPUTING GROUND TRUTH LABELS FROM 20NS DATA")
     log.info("="*70)
-    
+
     rows = []
 
     existing_keys = load_existing_keys(output_path)
@@ -249,7 +249,7 @@ def compute_ground_truth_labels(
 
     for protein in proteins:
         protein_dir = base_root / protein / "simulation_explicit"
-        
+
         if not protein_dir.exists():
             log.warning(f"Skipping {protein} (not found)")
             continue
@@ -262,15 +262,15 @@ def compute_ground_truth_labels(
                 log.info(f"Skipping existing: {protein} {pocket_id} {ligand_name}")
                 continue
             replica_dir = pocket_dir / "replica_1"
-            
+
             if not replica_dir.exists():
                 continue
 
             log.info(f"\nProcessing {protein} {pocket_id}")
-            
+
             # Paths
             timescale_dir = replica_dir / "timescale_frames"
-            
+
             if use_plip:
                 # Compute from PLIP results
                 plip_summary = timescale_dir / "plip_results" / "all_plip_interactions_summary.csv"
@@ -283,7 +283,7 @@ def compute_ground_truth_labels(
                     continue
                 else:
                     log.info(f"Using PLIP: {plip_summary.name}")
-                
+
                 f_contact, n_contacts = compute_labels_from_plip(plip_summary)
                 log.info(f"    f_contact (PLIP): {f_contact:.3f} ({n_contacts} contacts)")
 
@@ -309,23 +309,23 @@ def compute_ground_truth_labels(
                 else:
                     log.warning(f"    No trajectory for RMSD computation")
                     rmsd_late = np.nan
-                
+
             else:
                 # Compute from MD trajectory directly
                 top_path = replica_dir / f"{protein}_prepared_{ligand_name}_{pocket_id}_complex_recombined_complex_explicit_initial_frame.pdb"
                 traj_path = replica_dir / f"{protein}_prepared_{ligand_name}_{pocket_id}_complex_recombined_complex_explicit_trajectory.dcd"
-                
+
                 if not (top_path.exists() and traj_path.exists()):
                     log.warning(f"    No trajectory files")
                     continue
-                
+
                 f_contact = compute_contact_persistence(traj_path, top_path, ligand_resname)
                 if not use_drift:
                     rmsd_late = compute_rmsd_late(traj_path, top_path, ligand_resname)
                 else:
                     rmsd_late = np.nan
                 n_contacts = -1  # Not computed
-                
+
                 log.info(f"    f_contact (MD): {f_contact:.3f}")
                 log.info(f"    rmsd_late: {rmsd_late:.3f}Å")
 
@@ -353,7 +353,7 @@ def compute_ground_truth_labels(
                 or (np.isnan(rmsd_late) and drift is not None and drift >= DRIFT_CUTOFF)
             )
             log.info(f" {protein} {pocket_id}   Label: {'UNSTABLE' if label_unstable else 'STABLE'}")
-            
+
             row = {
                 "protein": protein,
                 "ligand_name": ligand_name,
@@ -365,11 +365,11 @@ def compute_ground_truth_labels(
                 "drift": drift,
                 "label_unstable": label_unstable
             }
-            
+
             rows.append(row)
-    
+
     df = pd.DataFrame(rows)
-    
+
     # Summary
     log.info(f"\n{'='*70}")
     log.info("LABELS COMPUTED")
@@ -377,17 +377,17 @@ def compute_ground_truth_labels(
     log.info(f"Total pockets: {len(df)}")
     log.info(f"Unstable: {df['label_unstable'].sum()} ({100*df['label_unstable'].mean():.1f}%)")
     log.info(f"Stable: {(~df['label_unstable'].astype(bool)).sum()} ({100*(1-df['label_unstable'].mean()):.1f}%)")
-    
+
     log.info(f"\nf_contact distribution:")
     log.info(f"  Mean: {df['f_contact_20ns'].mean():.3f}")
     log.info(f"  Median: {df['f_contact_20ns'].median():.3f}")
     log.info(f"  Range: [{df['f_contact_20ns'].min():.3f}, {df['f_contact_20ns'].max():.3f}]")
-    
+
     log.info(f"\nrmsd_late distribution:")
     log.info(f"  Mean: {df['rmsd_late_20ns'].mean():.3f}Å")
     log.info(f"  Median: {df['rmsd_late_20ns'].median():.3f}Å")
     log.info(f"  Range: [{df['rmsd_late_20ns'].min():.3f}, {df['rmsd_late_20ns'].max():.3f}]Å")
-    
+
     # Save
     new_ones = Path("new_drift_20ns.csv")
     df.to_csv(new_ones, index=False)
@@ -398,7 +398,7 @@ def compute_ground_truth_labels(
 
 def main():
     import argparse
-    
+
     parser = argparse.ArgumentParser(
         description="Compute ground truth stability labels from 20ns data"
     )
@@ -432,9 +432,9 @@ def main():
         action="store_true",
         help="Use PLIP results instead of MD trajectory for f_contact"
     )
-    
+
     args = parser.parse_args()
-    
+
     compute_ground_truth_labels(
         base_root=args.base_root,
         proteins=args.proteins,
@@ -442,6 +442,7 @@ def main():
         ligand_resname=args.ligand_resname,
         use_plip=args.use_plip,
     )
+
 
 
 if __name__ == "__main__":
